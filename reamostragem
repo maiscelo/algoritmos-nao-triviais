@@ -1,1 +1,117 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import random, math
+from random import randrange
+from collections import Counter
+from scipy.stats import norm, multivariate_normal
+from scipy import signal
+from numpy.linalg import inv
+data = np.loadtxt('column_3C.dat', usecols=(0,1,2,3,4,5))
+data_class = np.loadtxt('column_3C.dat', usecols=(6),dtype='str')
+classDH=data_class=='DH'
+classSL=data_class=='SL'
+classNO=data_class=='NO'
+mediaDH=[]
+perm = np.random.permutation(310)
+
+def fold(data):
+    global trainx
+    global trainy
+    global testx
+    global testy
+    #np.random.seed(0)
+    perm = np.random.permutation(450)
+    trainx = data[perm[0:360],0:6]
+    trainy = data[perm[0:360],6]
+    testx = data[perm[360:450],0:6]
+    testy = data[perm[360:450],6]
+    return trainx,trainy,testx,testy
+
+def distancia(dado):
+    muclass_0=[] 
+    muclass_1=[]
+    muclass_2=[]
+    varclass_0=[]
+    varclass_1=[]
+    varclass_2=[]
+#for j in range(3):
+    for i in range(6):
+    #mu=np.mean(data[trainy==0,i])
+        muclass_0.append(np.mean(trainx[trainy==1,i]))
+        muclass_1.append(np.mean(trainx[trainy==2,i]))
+        muclass_2.append(np.mean(trainx[trainy==3,i]))
+    d0=0
+    d1=0
+    d2=0
+    for i in range(6):
+        d0=(dado[i]-muclass_0[i])**2+d0
+        d1=(dado[i]-muclass_1[i])**2+d1
+        d2=(dado[i]-muclass_2[i])**2+d2
+    return np.sqrt(d0),np.sqrt(d1),np.sqrt(d2)
+confusao=[[0,0,0],
+          [0,0,0],
+          [0,0,0]]
+def re(x,y,z):
+    re_classDH=[]
+    re_classSL=[]
+    re_classNO=[]
+    elem=np.sum(x),np.sum(y),np.sum(z)
+    resample=np.max(elem)
+    if elem[0]<resample:
+        opa=data[classDH]
+        for i in range(6):
+            y=signal.resample(opa[:,i],resample)
+            re_classDH.append(y)
+    else:
+        re_classDH=data[classDH].transpose()
+    if elem[1]<resample:
+        opa2=data[classSL]
+        for i in range(6):
+            re_classSL.append(signal.resample(opa2[:,i],resample))
+            
+    else: 
+        re_classSL=data[classSL].transpose()
+    if elem[2]<resample:
+        opa3=data[classNO]
+        for i in range(6):
+            re_classNO.append(signal.resample(opa3[:,i],resample))
+    else: 
+        re_classNO=data[classNO].transpose()
+    g,h,i=np.asarray(re_classDH),np.asarray(re_classSL),np.asarray(re_classNO)
+    #g,h,i=g.transpose(),h.transpose(),i.transpose()
+    dh=np.ones((1,150))
+    sl=np.ones((1,150))*2
+    no=np.ones((1,150))*3
+    g=np.append(g,dh,axis=0)
+    h=np.append(h,sl,axis=0)
+    i=np.append(i,no,axis=0)
+    g=g.transpose()
+    h=h.transpose()
+    i=i.transpose()
+    dat=np.append(g,h,axis=0)
+    dat=np.append(dat,i,axis=0)
+    return dat
+
+dado=re(classDH,classSL,classNO)
+for i in range(1):
+    resulta=[]
+    fold(dado)
+    for i in range(90):
+        resulta.append(distancia(testx[i,0:6]))
+    x=np.asarray(resulta)
+    previsao=[]
+    for i in range(90):
+        previsao.append(np.argmin(x[i])+1)
+    y=np.asarray(previsao)
+    errors = np.sum(y!= testy)
+    for i in range(90):
+        if y[i]==testy[i]:
+            confusao[int(testy[i])-1][y[i]-1]=confusao[int(testy[i])-1][y[i]-1] +1
+        else:
+            confusao[int(testy[i])-1][y[i]-1]=confusao[int(testy[i]-1)][y[i]-1] +1
+
+print('Mínima distância para média')
+for i in confusao:
+    print(i)
 
